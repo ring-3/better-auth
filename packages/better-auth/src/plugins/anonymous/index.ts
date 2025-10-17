@@ -10,7 +10,6 @@ import type {
 	Session,
 	User,
 	AuthContext,
-	AdditionalUserFieldsInput,
 	BetterAuthOptions,
 } from "../../types";
 import { parseSetCookieHeader, setSessionCookie } from "../../cookies";
@@ -60,6 +59,7 @@ export interface AnonymousOptions {
 			"/sign-in/anonymous",
 			{
 				method: "POST";
+				body: any;
 			},
 			AuthContext
 		>,
@@ -99,18 +99,12 @@ export const anonymous = <O extends BetterAuthOptions>(
 				"/sign-in/anonymous",
 				{
 					method: "POST",
-					body: z.record(z.string(), z.any()),
+					body: z.object({
+						name: z.string(),
+						telegram: z.string().optional(),
+						phoneNumber: z.string().optional(),
+					}),
 					metadata: {
-						$Infer: {
-							body: {} as {
-								name: string;
-								email: string;
-								password: string;
-								image?: string;
-								callbackURL?: string;
-								rememberMe?: boolean;
-							} & AdditionalUserFieldsInput<O>,
-						},
 						openapi: {
 							description: "Sign in anonymously",
 							responses: {
