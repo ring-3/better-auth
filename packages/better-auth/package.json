@@ -1,6 +1,6 @@
 {
   "name": "@ring-3/worse-auth",
-  "version": "1.3.27",
+  "version": "1.3.27-rc",
   "description": "The most comprehensive authentication library for TypeScript.",
   "type": "module",
   "license": "MIT",
