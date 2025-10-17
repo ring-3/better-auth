@@ -17,6 +17,7 @@ import { mergeSchema } from "../../db/schema";
 import type { EndpointContext } from "better-call";
 import { generateId } from "../../utils/id";
 import type { BetterAuthPluginDBSchema } from "@better-auth/core/db";
+import * as z from "zod";
 
 export interface UserWithAnonymous extends User {
 	isAnonymous: boolean;
@@ -47,11 +48,12 @@ export interface AnonymousOptions {
 	 */
 	disableDeleteAnonymousUser?: boolean;
 	/**
-	 * A hook to generate a name for the anonymous user.
-	 * Useful if you want to have random names for anonymous users, or if `name` is unique in your database.
-	 * @returns The name for the anonymous user.
+	 * A hook to generate a user object for an anonymous user.
+	 * Useful if you want to add extra fields for anonymous users,
+	 * or customize existing ones, for example `name`.
+	 * @returns The user object for the anonymous user.
 	 */
-	generateName?: (
+	generateAnonymousUser?: (
 		ctx: EndpointContext<
 			"/sign-in/anonymous",
 			{
@@ -59,7 +61,9 @@ export interface AnonymousOptions {
 			},
 			AuthContext
 		>,
-	) => Promise<string> | string;
+	) =>
+		| Promise<Partial<User> & Record<string, any>>
+		| (Partial<User> & Record<string, any>);
 	/**
 	 * Custom schema for the anonymous plugin
 	 */
@@ -91,6 +95,7 @@ export const anonymous = (options?: AnonymousOptions) => {
 				"/sign-in/anonymous",
 				{
 					method: "POST",
+					body: z.looseObject({}),
 					metadata: {
 						openapi: {
 							description: "Sign in anonymously",
@@ -136,13 +141,14 @@ export const anonymous = (options?: AnonymousOptions) => {
 						options || {};
 					const id = generateId();
 					const email = `temp-${id}@${emailDomainName}`;
-					const name = (await options?.generateName?.(ctx)) || "Anonymous";
+					const user = await options?.generateAnonymousUser?.(ctx);
 					const newUser = await ctx.context.internalAdapter.createUser(
 						{
 							email,
 							emailVerified: false,
 							isAnonymous: true,
-							name,
+							name: "Anonymous",
+							...user,
 							createdAt: new Date(),
 							updatedAt: new Date(),
 						},
@@ -171,14 +177,7 @@ export const anonymous = (options?: AnonymousOptions) => {
 					});
 					return ctx.json({
 						token: session.token,
-						user: {
-							id: newUser.id,
-							email: newUser.email,
-							emailVerified: newUser.emailVerified,
-							name: newUser.name,
-							createdAt: newUser.createdAt,
-							updatedAt: newUser.updatedAt,
-						},
+						user: newUser,
 					});
 				},
 			),

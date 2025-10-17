@@ -7,6 +7,7 @@ import type { GoogleProfile } from "../../social-providers";
 import { DEFAULT_SECRET } from "../../utils/constants";
 import { getOAuth2Tokens } from "../../oauth2";
 import { signJWT } from "../../crypto/jwt";
+import { inferAdditionalFields } from "../additional-fields/client";
 
 vi.mock("../../oauth2", async (importOriginal) => {
 	const original = (await importOriginal()) as any;
@@ -133,29 +134,49 @@ describe("anonymous", async () => {
 		expect(linkAccountFn).toHaveBeenCalledWith(expect.any(Object));
 	});
 
-	it("should work with generateName", async () => {
+	it("should work with generateAnonymousUser", async () => {
 		const { customFetchImpl, sessionSetter } = await getTestInstance({
 			plugins: [
 				anonymous({
-					generateName() {
-						return "i-am-anonymous";
+					generateAnonymousUser(ctx) {
+						return { name: "i-am-anonymous", extraField: ctx.body.extraField };
 					},
 				}),
 			],
+			user: {
+				additionalFields: {
+					extraField: {
+						input: true,
+						required: false,
+						type: "number",
+					},
+				},
+			},
 		});
 		const client = createAuthClient({
-			plugins: [anonymousClient()],
+			plugins: [
+				anonymousClient(),
+				inferAdditionalFields({
+					user: {
+						extraField: {
+							type: "number",
+						},
+					},
+				}),
+			],
 			fetchOptions: {
 				customFetchImpl,
 			},
 			baseURL: "http://localhost:3000",
 		});
 		const res = await client.signIn.anonymous({
+			extraField: 5679121,
 			fetchOptions: {
 				onSuccess: sessionSetter(headers),
 			},
 		});
 		expect(res.data?.user.name).toBe("i-am-anonymous");
+		expect(res.data?.user.extraField).toBe(5679121);
 	});
 
 	it("should not reject first-time anonymous sign-in", async () => {
